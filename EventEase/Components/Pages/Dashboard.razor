@@ -1,0 +1,381 @@
+@page "/dashboard"
+@using EventEase.Models
+@using EventEase.Services
+@inject IUserSessionService UserSessionService
+@inject IEventService EventService
+@inject IAttendanceService AttendanceService
+@rendermode InteractiveServer
+
+<PageTitle>My Dashboard - EventEase</PageTitle>
+
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>My Dashboard</h1>
+        <p>Manage your registrations and track your event attendance</p>
+    </div>
+
+    @if (LoadingState == LoadState.Loading)
+    {
+        <div class="loading-spinner">
+            <p>Loading your dashboard...</p>
+        </div>
+    }
+    else if (LoadingState == LoadState.Error)
+    {
+        <div class="error-container">
+            <h2>Error Loading Dashboard</h2>
+            <p>@ErrorMessage</p>
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-content">
+            <!-- User Profile Section -->
+            <div class="section profile-section">
+                <h2>Your Profile</h2>
+                <div class="profile-card">
+                    <div class="profile-item">
+                        <label>Name:</label>
+                        <span>@(string.IsNullOrEmpty(CurrentSession?.UserName) ? "Not set" : CurrentSession.UserName)</span>
+                    </div>
+                    <div class="profile-item">
+                        <label>Email:</label>
+                        <span>@(string.IsNullOrEmpty(CurrentSession?.Email) ? "Not set" : CurrentSession.Email)</span>
+                    </div>
+                    <div class="profile-item">
+                        <label>Company:</label>
+                        <span>@(string.IsNullOrEmpty(CurrentSession?.Company) ? "Not set" : CurrentSession.Company)</span>
+                    </div>
+                    <div class="profile-item">
+                        <label>Member Since:</label>
+                        <span>@CurrentSession?.CreatedAt.ToString("MMMM dd, yyyy")</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registered Events Section -->
+            <div class="section registrations-section">
+                <h2>My Registrations (@RegisteredEvents.Count)</h2>
+                
+                @if (RegisteredEvents.Count == 0)
+                {
+                    <div class="empty-state">
+                        <p>You haven't registered for any events yet.</p>
+                        <a href="/events" class="btn btn-primary">Browse Events</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="registrations-list">
+                        @foreach (var evt in RegisteredEvents)
+                        {
+                            <div class="registration-item">
+                                <div class="registration-info">
+                                    <h3>@evt.Name</h3>
+                                    <p><strong>📅 Date:</strong> @evt.Date.ToString("MMMM dd, yyyy")</p>
+                                    <p><strong>📍 Location:</strong> @evt.Location</p>
+                                </div>
+                                <div class="registration-actions">
+                                    <a href="@($"event-details/{evt.Id}")" class="btn btn-secondary">View Details</a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Attendance Statistics -->
+            <div class="section statistics-section">
+                <h2>Attendance Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">@RegisteredEvents.Count</div>
+                        <div class="stat-label">Events Registered</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">@CheckedInCount</div>
+                        <div class="stat-label">Check-ins Completed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">@(RegisteredEvents.Count > 0 ? Math.Round((CheckedInCount * 100.0) / RegisteredEvents.Count) : 0)%</div>
+                        <div class="stat-label">Attendance Rate</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .dashboard-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .dashboard-header {
+        margin-bottom: 40px;
+    }
+
+    .dashboard-header h1 {
+        color: #333;
+        margin: 0 0 10px 0;
+        font-size: 2.5rem;
+    }
+
+    .dashboard-header p {
+        color: #666;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    .loading-spinner,
+    .error-container {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .error-container {
+        background: #ffe6e6;
+        border: 1px solid #c53030;
+        border-radius: 8px;
+        color: #742a2a;
+    }
+
+    .error-container h2 {
+        color: #c53030;
+        margin: 0 0 15px 0;
+    }
+
+    .dashboard-content {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .section {
+        background: white;
+        border-radius: 8px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .section h2 {
+        color: #333;
+        margin: 0 0 20px 0;
+        font-size: 1.5rem;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+    }
+
+    .profile-card {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .profile-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .profile-item label {
+        color: #667eea;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .profile-item span {
+        color: #333;
+        font-size: 0.95rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+    }
+
+    .empty-state p {
+        margin-bottom: 20px;
+    }
+
+    .empty-state .btn {
+        padding: 10px 25px;
+        background-color: #667eea;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        display: inline-block;
+    }
+
+    .empty-state .btn:hover {
+        background-color: #5568d3;
+    }
+
+    .registrations-list {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .registration-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 6px;
+        border-left: 4px solid #667eea;
+    }
+
+    .registration-info {
+        flex: 1;
+    }
+
+    .registration-info h3 {
+        margin: 0 0 10px 0;
+        color: #333;
+    }
+
+    .registration-info p {
+        margin: 5px 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .registration-actions {
+        margin-left: 20px;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        background-color: #e2e8f0;
+        color: #333;
+        text-decoration: none;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn:hover {
+        background-color: #cbd5e0;
+    }
+
+    .btn-primary {
+        background-color: #667eea;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #5568d3;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 25px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    .stat-label {
+        font-size: 0.95rem;
+        opacity: 0.95;
+    }
+
+    @("@media (max-width: 768px)") {
+        .dashboard-header h1 {
+            font-size: 1.8rem;
+        }
+
+        .registration-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .registration-actions {
+            margin-left: 0;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .registration-actions .btn {
+            width: 100%;
+            display: block;
+        }
+
+        .profile-card {
+            grid-template-columns: 1fr;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@code {
+    private UserSession? CurrentSession;
+    private List<Event> RegisteredEvents = new();
+    private int CheckedInCount = 0;
+    private LoadState LoadingState = LoadState.Loading;
+    private string ErrorMessage = string.Empty;
+
+    private enum LoadState
+    {
+        Loading,
+        Success,
+        Error
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get current session
+            CurrentSession = await UserSessionService.GetCurrentSessionAsync();
+
+            // Load registered events
+            var registeredEventIds = await UserSessionService.GetRegisteredEventsAsync();
+            RegisteredEvents = new();
+
+            foreach (var eventId in registeredEventIds)
+            {
+                var evt = await EventService.GetEventByIdAsync(eventId);
+                if (evt != null)
+                {
+                    RegisteredEvents.Add(evt);
+                }
+            }
+
+            // Calculate check-in count
+            if (!string.IsNullOrEmpty(CurrentSession?.Email))
+            {
+                var userAttendance = await AttendanceService.GetUserAttendanceAsync(CurrentSession.Email);
+                CheckedInCount = userAttendance.Count(r => r.CheckedIn);
+            }
+
+            LoadingState = LoadState.Success;
+        }
+        catch (Exception ex)
+        {
+            LoadingState = LoadState.Error;
+            ErrorMessage = $"Failed to load dashboard: {ex.Message}";
+        }
+    }
+}

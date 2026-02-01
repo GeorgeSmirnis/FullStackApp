@@ -1,0 +1,572 @@
+@page "/register/{EventId:int}"
+@using EventEase.Models
+@using EventEase.Services
+@inject IEventService EventService
+@inject IUserSessionService UserSessionService
+@inject IAttendanceService AttendanceService
+@rendermode InteractiveServer
+
+<PageTitle>Register for Event - EventEase</PageTitle>
+
+<div class="registration-container">
+    @if (LoadingState == LoadState.Loading)
+    {
+        <div class="loading-spinner">
+            <p>Loading event information...</p>
+        </div>
+    }
+    else if (LoadingState == LoadState.Error)
+    {
+        <div class="error-container">
+            <h2>Error Loading Event</h2>
+            <p>@ErrorMessage</p>
+            <a href="/events" class="btn btn-secondary">Return to Events</a>
+        </div>
+    }
+    else if (CurrentEvent != null)
+    {
+        <div class="back-link">
+            <a href="@($"/event-details/{CurrentEvent.Id}")">← Back to Event Details</a>
+        </div>
+
+        <div class="registration-card">
+            <h1>Register for Event</h1>
+
+            <div class="event-summary">
+                <h2>@(CurrentEvent?.Name ?? "Untitled Event")</h2>
+                <p><strong>📅 Date:</strong> @GetFormattedDate()</p>
+                <p><strong>📍 Location:</strong> @(CurrentEvent?.Location ?? "Location TBD")</p>
+            </div>
+
+            @if (RegistrationSuccess)
+            {
+                <div class="success-message">
+                    <h3>✓ Registration Successful!</h3>
+                    <p>Thank you for registering for @(CurrentEvent?.Name ?? "this event")</p>
+                    <p>A confirmation email has been sent to your registered email address.</p>
+                    <a href="/events" class="btn btn-primary">Browse More Events</a>
+                </div>
+            }
+            else if (CurrentEvent?.RegisteredAttendees >= CurrentEvent?.MaxAttendees)
+            {
+                <div class="error-message">
+                    <h3>Event Full</h3>
+                    <p>Unfortunately, this event has reached maximum capacity (@(CurrentEvent?.MaxAttendees ?? 0) attendees).</p>
+                    <a href="/events" class="btn btn-secondary">Return to Events</a>
+                </div>
+            }
+            else
+            {
+                <form @onsubmit="HandleRegistration">
+                    <div class="form-group">
+                        <label for="firstName">First Name *</label>
+                        <input type="text" id="firstName" @bind="RegistrationData.FirstName" required placeholder="Enter your first name" maxlength="100" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lastName">Last Name *</label>
+                        <input type="text" id="lastName" @bind="RegistrationData.LastName" required placeholder="Enter your last name" maxlength="100" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email Address *</label>
+                        <input type="email" id="email" @bind="RegistrationData.Email" required placeholder="Enter your email" maxlength="255" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" @bind="RegistrationData.Phone" placeholder="Enter your phone number" maxlength="20" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="company">Company/Organization</label>
+                        <input type="text" id="company" @bind="RegistrationData.Company" placeholder="Enter your company name" maxlength="100" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="comments">Additional Comments</label>
+                        <textarea id="comments" @bind="RegistrationData.Comments" placeholder="Any special requests or comments?" maxlength="500"></textarea>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="terms" @bind="AgreeToTerms" />
+                        <label for="terms">I agree to the terms and conditions and privacy policy</label>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(ValidationError))
+                    {
+                        <div class="validation-error">
+                            <p>@ValidationError</p>
+                        </div>
+                    }
+
+                    <div class="form-buttons">
+                        <button type="submit" class="btn btn-primary" disabled="@(!AgreeToTerms || IsSubmitting)">
+                            @(IsSubmitting ? "Processing..." : "Complete Registration")
+                        </button>
+                        <a href="@($"/event-details/{CurrentEvent?.Id}")" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="not-found">
+            <h2>Event Not Found</h2>
+            <p>The event with ID @EventId doesn't exist or has been removed.</p>
+            <a href="/events">Return to Events</a>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int EventId { get; set; }
+
+    private Event? CurrentEvent;
+    private bool RegistrationSuccess = false;
+    private bool AgreeToTerms = false;
+    private bool IsSubmitting = false;
+    private string ValidationError = string.Empty;
+    private LoadState LoadingState = LoadState.Loading;
+    private string ErrorMessage = string.Empty;
+
+    private enum LoadState
+    {
+        Loading,
+        Success,
+        Error
+    }
+
+    private class Registration
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Company { get; set; } = string.Empty;
+        public string Comments { get; set; } = string.Empty;
+    }
+
+    private Registration RegistrationData = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Validate EventId
+            if (EventId <= 0)
+            {
+                LoadingState = LoadState.Error;
+                ErrorMessage = "Invalid event ID provided.";
+                return;
+            }
+
+            // Check if event ID is valid
+            var isValid = await EventService.IsValidEventIdAsync(EventId);
+            if (!isValid)
+            {
+                LoadingState = LoadState.Success;
+                CurrentEvent = null;
+                return;
+            }
+
+            // Load event data
+            CurrentEvent = await EventService.GetEventByIdAsync(EventId);
+            LoadingState = LoadState.Success;
+        }
+        catch (Exception ex)
+        {
+            LoadingState = LoadState.Error;
+            ErrorMessage = $"An error occurred while loading the event: {ex.Message}";
+        }
+    }
+
+    private string GetFormattedDate()
+    {
+        try
+        {
+            if (CurrentEvent?.Date == default)
+                return "Date TBD";
+            
+            return CurrentEvent?.Date.ToString("MMMM dd, yyyy") ?? "Date TBD";
+        }
+        catch
+        {
+            return "Invalid Date";
+        }
+    }
+
+    private bool ValidateFormData()
+    {
+        ValidationError = string.Empty;
+
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(RegistrationData.FirstName) || RegistrationData.FirstName.Length > 100)
+        {
+            ValidationError = "First name is required and must be less than 100 characters.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(RegistrationData.LastName) || RegistrationData.LastName.Length > 100)
+        {
+            ValidationError = "Last name is required and must be less than 100 characters.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(RegistrationData.Email) || RegistrationData.Email.Length > 255)
+        {
+            ValidationError = "Valid email address is required.";
+            return false;
+        }
+
+        // Basic email format validation
+        if (!RegistrationData.Email.Contains("@") || !RegistrationData.Email.Contains("."))
+        {
+            ValidationError = "Please enter a valid email address format.";
+            return false;
+        }
+
+        if (RegistrationData.Phone.Length > 20)
+        {
+            ValidationError = "Phone number must be less than 20 characters.";
+            return false;
+        }
+
+        if (RegistrationData.Company.Length > 100)
+        {
+            ValidationError = "Company name must be less than 100 characters.";
+            return false;
+        }
+
+        if (RegistrationData.Comments.Length > 500)
+        {
+            ValidationError = "Comments must be less than 500 characters.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task HandleRegistration()
+    {
+        // Validate form data
+        if (!ValidateFormData())
+        {
+            return;
+        }
+
+        // Prevent double submission
+        if (IsSubmitting)
+        {
+            return;
+        }
+
+        // Check event capacity again (race condition protection)
+        if (CurrentEvent?.RegisteredAttendees >= CurrentEvent?.MaxAttendees)
+        {
+            ValidationError = "This event is now full. Please try another event.";
+            return;
+        }
+
+        try
+        {
+            IsSubmitting = true;
+
+            // Update user session
+            var session = await UserSessionService.GetCurrentSessionAsync();
+            session.UserName = $"{RegistrationData.FirstName} {RegistrationData.LastName}";
+            session.Email = RegistrationData.Email;
+            session.Company = RegistrationData.Company;
+            await UserSessionService.UpdateSessionAsync(session);
+
+            // Register attendance
+            var attendance = await AttendanceService.RegisterAttendanceAsync(
+                CurrentEvent!.Id,
+                session.UserName,
+                RegistrationData.Email
+            );
+
+            // Record registration in user session
+            await UserSessionService.RegisterForEventAsync(CurrentEvent.Id);
+
+            // Simulate form submission with async operation
+            await Task.Delay(500);
+            RegistrationSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            ValidationError = $"An error occurred during registration: {ex.Message}";
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+}
+
+<style>
+    .registration-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+
+    .error-container {
+        background: #ffe6e6;
+        border: 1px solid #c53030;
+        border-radius: 8px;
+        padding: 40px;
+        text-align: center;
+        color: #742a2a;
+    }
+
+    .error-container h2 {
+        color: #c53030;
+        margin: 0 0 15px 0;
+    }
+
+    .error-container p {
+        margin: 0 0 20px 0;
+    }
+
+    .back-link {
+        margin-bottom: 20px;
+    }
+
+    .back-link a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+
+    .back-link a:hover {
+        color: #5568d3;
+    }
+
+    .registration-card {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        color: #333;
+        margin-bottom: 25px;
+        text-align: center;
+    }
+
+    h2 {
+        color: #333;
+        margin: 0 0 15px 0;
+        font-size: 1.3rem;
+    }
+
+    .event-summary {
+        background: #f9f9f9;
+        padding: 20px;
+        border-radius: 6px;
+        margin-bottom: 30px;
+        border-left: 4px solid #667eea;
+    }
+
+    .event-summary p {
+        margin: 8px 0;
+        color: #666;
+    }
+
+    .success-message {
+        background: #e6ffed;
+        border: 1px solid #38a169;
+        border-radius: 6px;
+        padding: 20px;
+        text-align: center;
+        color: #22543d;
+    }
+
+    .success-message h3 {
+        color: #276749;
+        margin: 0 0 15px 0;
+    }
+
+    .success-message p {
+        margin: 10px 0;
+    }
+
+    .error-message {
+        background: #ffe6e6;
+        border: 1px solid #c53030;
+        border-radius: 6px;
+        padding: 20px;
+        text-align: center;
+        color: #742a2a;
+    }
+
+    .error-message h3 {
+        color: #c53030;
+        margin: 0 0 15px 0;
+    }
+
+    .error-message p {
+        margin: 10px 0;
+    }
+
+    form {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    label {
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    textarea {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        transition: border-color 0.3s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="tel"]:focus,
+    textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 25px;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 4px;
+    }
+
+    input[type="checkbox"] {
+        margin-top: 3px;
+        cursor: pointer;
+    }
+
+    .checkbox-group label {
+        margin: 0;
+        cursor: pointer;
+        font-weight: normal;
+    }
+
+    .form-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        text-decoration: none;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: background-color 0.3s ease;
+        text-align: center;
+        flex: 1;
+    }
+
+    .btn-primary {
+        background-color: #667eea;
+        color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #5568d3;
+    }
+
+    .btn-primary:disabled {
+        background-color: #cbd5e0;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .btn-secondary {
+        background-color: #e2e8f0;
+        color: #333;
+    }
+
+    .btn-secondary:hover {
+        background-color: #cbd5e0;
+    }
+
+    .validation-error {
+        background: #fef5e7;
+        border: 1px solid #f39c12;
+        border-radius: 4px;
+        padding: 12px;
+        margin: 15px 0;
+        color: #d68910;
+    }
+
+    .validation-error p {
+        margin: 0;
+    }
+
+    .not-found {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .not-found h2 {
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    .not-found p {
+        color: #999;
+        margin-bottom: 20px;
+    }
+
+    .not-found a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    @("@media (max-width: 600px)") {
+        .registration-card {
+            padding: 20px;
+        }
+
+        .form-buttons {
+            flex-direction: column;
+        }
+    }
+</style>
