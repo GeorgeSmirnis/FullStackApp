@@ -1,0 +1,353 @@
+### User Management API v3.0.0 - Middleware Testing Suite
+### Tests for logging, error handling, and authentication middleware
+@baseUrl = http://localhost:5000
+@secureUrl = https://localhost:7000
+@validBearerToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+@invalidBearerToken = Bearer invalid_token_format
+@validApiKey = demo-api-key-2026
+@invalidApiKey = invalid-api-key
+
+---
+
+### SECTION 1: AUTHENTICATION MIDDLEWARE TESTS
+### Tests for valid/invalid token scenarios
+### ===================================
+
+### 1.1 GET Health Check (NO AUTHENTICATION REQUIRED)
+GET {{baseUrl}}/health
+
+### 1.2 GET All Users with VALID Bearer Token (SHOULD PASS)
+GET {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+
+### 1.3 GET All Users with INVALID Bearer Token (SHOULD FAIL - 401)
+GET {{baseUrl}}/api/users
+Authorization: {{invalidBearerToken}}
+
+### 1.4 GET All Users with NO Token (SHOULD FAIL - 401)
+GET {{baseUrl}}/api/users
+
+### 1.5 GET All Users with VALID API Key (SHOULD PASS)
+GET {{baseUrl}}/api/users
+X-API-Key: {{validApiKey}}
+
+### 1.6 GET All Users with INVALID API Key (SHOULD FAIL - 401)
+GET {{baseUrl}}/api/users
+X-API-Key: {{invalidApiKey}}
+
+### 1.7 GET Specific User with Valid Bearer Token (SHOULD PASS)
+GET {{baseUrl}}/api/users/1
+Authorization: {{validBearerToken}}
+
+### 1.8 GET Specific User with MISSING Token (SHOULD FAIL - 401)
+GET {{baseUrl}}/api/users/1
+
+---
+
+### SECTION 2: REQUEST LOGGING VERIFICATION
+### Tests to verify request/response logging is working
+### ===================================
+
+### 2.1 Simple GET request to verify logging captures method and path
+GET {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+
+### 2.2 POST request to verify logging captures method and success status
+POST {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "LogTest",
+  "lastName": "User",
+  "email": "logtest@techhive.com",
+  "jobTitle": "Test Engineer",
+  "department": "QA",
+  "hireDate": "2023-01-01",
+  "isActive": true
+}
+
+### 2.3 PUT request to verify logging captures update operations
+PUT {{baseUrl}}/api/users/1
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Updated",
+  "lastName": "User",
+  "email": "john.doe@techhive.com",
+  "jobTitle": "Senior Engineer",
+  "department": "Engineering",
+  "hireDate": "2022-01-15",
+  "isActive": true
+}
+
+### 2.4 DELETE request to verify logging captures delete operations
+DELETE {{baseUrl}}/api/users/5
+Authorization: {{validBearerToken}}
+
+---
+
+### SECTION 3: ERROR HANDLING MIDDLEWARE TESTS
+### Tests for exception handling and consistent error responses
+### ===================================
+
+### 3.1 GET Non-existent User (SHOULD RETURN 404 in standardized format)
+GET {{baseUrl}}/api/users/99999
+Authorization: {{validBearerToken}}
+
+### 3.2 POST with Invalid Email Format (SHOULD RETURN 400 in standardized format)
+POST {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Invalid",
+  "lastName": "Email",
+  "email": "not-a-valid-email",
+  "jobTitle": "Developer",
+  "department": "Engineering",
+  "hireDate": "2023-01-01",
+  "isActive": true
+}
+
+### 3.3 POST with Future HireDate (SHOULD RETURN 400 with detailed errors)
+POST {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Future",
+  "lastName": "Employee",
+  "email": "future@techhive.com",
+  "jobTitle": "Developer",
+  "department": "Engineering",
+  "hireDate": "2099-12-31",
+  "isActive": true
+}
+
+### 3.4 POST with Multiple Validation Errors (SHOULD RETURN comprehensive error list)
+POST {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "   ",
+  "lastName": "   ",
+  "email": "invalid-email",
+  "jobTitle": "",
+  "department": "",
+  "hireDate": "2099-01-01",
+  "isActive": true
+}
+
+### 3.5 PUT Non-existent User (SHOULD RETURN 404 with friendly message)
+PUT {{baseUrl}}/api/users/99999
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Ghost",
+  "lastName": "User",
+  "email": "ghost@example.com",
+  "jobTitle": "Developer",
+  "department": "Engineering",
+  "hireDate": "2023-01-01",
+  "isActive": true
+}
+
+### 3.6 DELETE Non-existent User (SHOULD RETURN 404 with friendly message)
+DELETE {{baseUrl}}/api/users/99999
+Authorization: {{validBearerToken}}
+
+---
+
+### SECTION 4: AUTHENTICATION EDGE CASES
+### ===================================
+
+### 4.1 Missing Authorization Header (SHOULD RETURN 401)
+GET {{baseUrl}}/api/users
+
+### 4.2 Empty Bearer Token (SHOULD RETURN 401)
+GET {{baseUrl}}/api/users
+Authorization: Bearer
+
+### 4.3 Malformed Bearer Token (SHOULD RETURN 401)
+GET {{baseUrl}}/api/users
+Authorization: Bearer123
+
+### 4.4 Mixed Case X-API-Key Header (SHOULD PASS - case sensitivity check)
+GET {{baseUrl}}/api/users
+x-api-key: {{validApiKey}}
+
+### 4.5 Wrong Header Format (SHOULD RETURN 401)
+GET {{baseUrl}}/api/users
+Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=
+
+---
+
+### SECTION 5: AUTHENTICATED CRUD OPERATIONS
+### Full CRUD tests with proper authentication
+### ===================================
+
+### 5.1 Create User with Bearer Token
+POST {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Authenticated",
+  "lastName": "Creation",
+  "email": "auth.create@techhive.com",
+  "jobTitle": "Software Engineer",
+  "department": "Engineering",
+  "hireDate": "2023-06-01",
+  "isActive": true
+}
+
+### 5.2 Create User with API Key
+POST {{baseUrl}}/api/users
+X-API-Key: {{validApiKey}}
+Content-Type: application/json
+
+{
+  "firstName": "ApiKey",
+  "lastName": "Created",
+  "email": "apikey.create@techhive.com",
+  "jobTitle": "QA Engineer",
+  "department": "QA",
+  "hireDate": "2023-07-01",
+  "isActive": true
+}
+
+### 5.3 Read All Users with Bearer Token
+GET {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+
+### 5.4 Read Specific User with API Key
+GET {{baseUrl}}/api/users/1
+X-API-Key: {{validApiKey}}
+
+### 5.5 Update User with Bearer Token
+PUT {{baseUrl}}/api/users/1
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@techhive.com",
+  "jobTitle": "Lead Software Engineer",
+  "department": "Engineering",
+  "hireDate": "2022-01-15",
+  "isActive": true
+}
+
+### 5.6 Update User with API Key
+PUT {{baseUrl}}/api/users/2
+X-API-Key: {{validApiKey}}
+Content-Type: application/json
+
+{
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "email": "jane.smith@techhive.com",
+  "jobTitle": "Senior HR Manager",
+  "department": "Human Resources",
+  "hireDate": "2021-06-20",
+  "isActive": true
+}
+
+### 5.7 Delete User with Bearer Token
+DELETE {{baseUrl}}/api/users/5
+Authorization: {{validBearerToken}}
+
+---
+
+### SECTION 6: LOGGING VERIFICATION
+### Tests to trigger various log levels
+### ===================================
+
+### 6.1 Successful Request (INFO level log)
+GET {{baseUrl}}/api/users/1
+Authorization: {{validBearerToken}}
+
+### 6.2 Client Error (WARNING level log)
+GET {{baseUrl}}/api/users/99999
+Authorization: {{validBearerToken}}
+
+### 6.3 Unauthorized Access (WARNING level log)
+GET {{baseUrl}}/api/users
+Authorization: {{invalidBearerToken}}
+
+### 6.4 Validation Error (WARNING level - caught before response)
+POST {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Validation",
+  "lastName": "Error",
+  "email": "invalid",
+  "jobTitle": "Developer",
+  "department": "Engineering",
+  "hireDate": "2023-01-01",
+  "isActive": true
+}
+
+---
+
+### SECTION 7: SWAGGER/DOCUMENTATION EXCLUDED FROM AUTH
+### ===================================
+
+### 7.1 Swagger UI (NO AUTHENTICATION REQUIRED)
+GET {{baseUrl}}/swagger/index.html
+
+### 7.2 OpenAPI JSON (NO AUTHENTICATION REQUIRED)
+GET {{baseUrl}}/openapi.json
+
+### 7.3 Health Check (NO AUTHENTICATION REQUIRED)
+GET {{baseUrl}}/health
+
+---
+
+### SECTION 8: CONCURRENT REQUEST TESTING
+### Tests to verify logging and authentication work under load
+### ===================================
+
+### 8.1a Concurrent Request 1 - With Bearer Token
+GET {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+
+### 8.1b Concurrent Request 2 - With API Key
+GET {{baseUrl}}/api/users/1
+X-API-Key: {{validApiKey}}
+
+### 8.1c Concurrent Request 3 - Unauthorized
+GET {{baseUrl}}/api/users/2
+
+### 8.1d Concurrent Request 4 - Valid Creating User
+POST {{baseUrl}}/api/users
+Authorization: {{validBearerToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Concurrent",
+  "lastName": "Request",
+  "email": "concurrent@techhive.com",
+  "jobTitle": "Developer",
+  "department": "Engineering",
+  "hireDate": "2023-01-01",
+  "isActive": true
+}
+
+---
+
+### NOTES FOR TESTING:
+### 1. Check application console/debug output for detailed logs
+### 2. Logs should show: HTTP method, path, status code, elapsed time
+### 3. Authentication errors should return 401 Unauthorized
+### 4. Validation errors should return 400 Bad Request with detailed error messages
+### 5. All error responses should follow the standardized JSON format
+### 6. Health check endpoint should NOT require authentication
+### 7. Swagger endpoints should NOT require authentication
