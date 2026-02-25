@@ -1,6 +1,0 @@
-@microsoftWebAPI_HostAddress = http://localhost:5023
-
-GET {{microsoftWebAPI_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
