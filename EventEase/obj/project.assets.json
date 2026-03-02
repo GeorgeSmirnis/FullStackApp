@@ -2,7 +2,7 @@
   "version": 3,
   "targets": {
     "net10.0": {
-      "Microsoft.AspNetCore.App.Internal.Assets/10.0.0": {
+      "Microsoft.AspNetCore.App.Internal.Assets/10.0.3": {
         "type": "package",
         "build": {
           "build/Microsoft.AspNetCore.App.Internal.Assets.props": {},
@@ -15,10 +15,10 @@
     }
   },
   "libraries": {
-    "Microsoft.AspNetCore.App.Internal.Assets/10.0.0": {
-      "sha512": "0gZrESKwnlmbE8Br8XIy3kk7Pj0++9T2Ly+A8BFYYgo5EgfqWEln26cho+l92KOaHUzclhvz314RiwE910s24g==",
+    "Microsoft.AspNetCore.App.Internal.Assets/10.0.3": {
+      "sha512": "mr3Zn+ht8lijYvlMIasftw9opU9hsLKDdnOgQMmYI3RjWPJLOF9l8+YHDseRkTs97wOrULmJgo/NDCmzL/EGDg==",
       "type": "package",
-      "path": "microsoft.aspnetcore.app.internal.assets/10.0.0",
+      "path": "microsoft.aspnetcore.app.internal.assets/10.0.3",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -34,14 +34,14 @@
         "build/Microsoft.AspNetCore.App.Internal.Assets.targets",
         "buildMultiTargeting/Microsoft.AspNetCore.App.Internal.Assets.targets",
         "buildTransitive/Microsoft.AspNetCore.App.Internal.Assets.targets",
-        "microsoft.aspnetcore.app.internal.assets.10.0.0.nupkg.sha512",
+        "microsoft.aspnetcore.app.internal.assets.10.0.3.nupkg.sha512",
         "microsoft.aspnetcore.app.internal.assets.nuspec"
       ]
     }
   },
   "projectFileDependencyGroups": {
     "net10.0": [
-      "Microsoft.AspNetCore.App.Internal.Assets >= 10.0.0"
+      "Microsoft.AspNetCore.App.Internal.Assets >= 10.0.3"
     ]
   },
   "packageFolders": {
@@ -98,7 +98,7 @@
           "Microsoft.AspNetCore.App.Internal.Assets": {
             "suppressParent": "All",
             "target": "Package",
-            "version": "[10.0.0, )",
+            "version": "[10.0.3, )",
             "autoReferenced": true
           }
         },
@@ -121,7 +121,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.103/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.AspNetCore": "(,10.0.32767]",
           "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",
